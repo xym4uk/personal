@@ -1,0 +1,17 @@
+#!/usr/bin/env bash
+
+if [ ! -z "$WWWUSER" ]; then
+    usermod -u $WWWUID $WWWUSER
+fi
+
+if [ ! -d /home/$WWWUSER/.composer ]; then
+    mkdir /home/$WWWUSER/.composer
+fi
+
+chmod -R ugo+rw /home/$WWWUSER/.composer
+
+if [ $# -gt 0 ];then
+    exec gosu $WWWUSER "$@"
+else
+    /usr/bin/supervisord -c /etc/supervisor/conf.d/supervisord.conf
+fi

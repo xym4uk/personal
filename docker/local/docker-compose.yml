@@ -1,0 +1,70 @@
+version: "3.8"
+
+services:
+  database:
+    image: 'postgres:14-alpine'
+    container_name: ${PROJECTNAME}-db
+    ports:
+      - '${DBPORT:-5432}:5432'
+    environment:
+      PGPASSWORD: '${DBROOTPASS:-r00ts3cr3t}'
+      POSTGRES_DB: '${DBNAME}'
+      POSTGRES_USER: '${DBUSER}'
+      POSTGRES_PASSWORD: '${DBPASS:-secret}'
+    volumes:
+      - db-vol:/var/lib/postgresql/data
+    networks:
+      - network
+    healthcheck:
+      test: [ "CMD", "pg_isready", "-q", "-d", "${DBNAME}", "-U", "${DBUSER}" ]
+      retries: 3
+      timeout: 5s
+  php:
+    build:
+      args:
+        WWWGROUP: ${WWWGROUP}
+        WWWGID: ${WWWGID}
+        WWWUSER: ${WWWUSER}
+        WWWUID: ${WWWUID}
+      context: ./
+      dockerfile: ./php/Dockerfile
+    image: ${PROJECTNAME}
+    container_name: ${PROJECTNAME}-php
+    restart: always
+    working_dir: /var/www/
+    environment:
+      WWWUSER: '${WWWUSER}'
+      WWWUID: ${WWWUID}
+    volumes:
+      - ./../../:/var/www
+    networks:
+      - network
+    dns:
+      - 8.8.8.8
+      - 8.8.4.4
+    depends_on:
+      - database
+  nginx:
+    image: nginx:stable-alpine
+    container_name: ${PROJECTNAME}-nginx
+    restart: always
+    environment:
+      - NGINX_HOST=${HOST}
+      - NGINX_PORT=${PORT}
+    ports:
+      - ${PORT}:80
+    volumes:
+      - ./../../:/var/www
+      - ./nginx/templates:/etc/nginx/templates
+      - ./nginx/logs:/var/log/nginx
+    networks:
+      - network
+    depends_on:
+      - php
+networks:
+  network:
+    driver: bridge
+volumes:
+  db-vol:
+    driver: local
+    name: ${PROJECTNAME}-db-vol
